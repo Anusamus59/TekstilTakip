@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Kontrol v17.3 | Enterprise Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuLN9CgWm0dpuGdeXJyjCT8jcoIMrWXgs",
+            authDomain: "tekstiltakip-10a37.firebaseapp.com",
+            databaseURL: "https://tekstiltakip-10a37-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tekstiltakip-10a37",
+            storageBucket: "tekstiltakip-10a37.firebasestorage.app",
+            messagingSenderId: "882317271693",
+            appId: "1:882317271693:web:2b75ff1265526dfa73f8c4"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        window.fb = { db, ref, set, onValue };
+        window.initApp();
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { background: #000; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
+        .bento-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 2rem; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .input-field { background: #000; border: 1px solid #222; padding: 1.1rem; border-radius: 1.2rem; width: 100%; color: white; font-weight: 600; outline: none; transition: 0.3s; }
+        .input-field:focus { border-color: #6366f1; background: #050505; }
+        .nav-btn { padding: 1.2rem 2.2rem; border-radius: 1.4rem; font-weight: 800; font-size: 0.75rem; transition: 0.4s; background: #0a0a0a; color: #475569; border: 1px solid #1a1a1a; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-btn.active { background: #6366f1; color: white; border-color: #818cf8; box-shadow: 0 15px 30px -10px rgba(99, 102, 241, 0.4); }
+        label { font-size: 0.7rem; font-weight: 800; color: #64748b; margin-bottom: 0.6rem; display: block; text-transform: uppercase; letter-spacing: 0.1em; }
+        .status-pill { padding: 0.4rem 0.8rem; border-radius: 999px; font-size: 0.65rem; font-weight: 800; }
+        .wizard-gradient { background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(0,0,0,0) 100%); border: 1px dashed rgba(79, 70, 229, 0.4); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .table-row { transition: 0.2s; border-bottom: 1px solid #111; }
+        .table-row:hover { background: rgba(255,255,255,0.02); }
+        .pay-action-btn { background: #10b981; color: white; padding: 0.5rem 1rem; border-radius: 0.8rem; font-size: 0.65rem; font-weight: 800; transition: 0.3s; }
+        .pay-action-btn:hover { background: #059669; transform: scale(1.05); }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div id="login-zone" class="fixed inset-0 bg-black z-[9999] flex items-center justify-center p-6">
+        <div class="bento-card p-12 max-w-md w-full text-center border-indigo-500/20 shadow-2xl">
+            <h2 class="text-3xl font-black mb-2 italic tracking-tighter uppercase">ATASOY <span class="text-indigo-500">TEKSTİL</span></h2>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-8">Stok Takip</p>
+            <input type="password" id="pass" class="input-field text-center text-3xl mb-6 tracking-[0.5em]" placeholder="••••">
+            <button onclick="login()" class="w-full bg-indigo-600 py-5 rounded-2xl font-black text-white hover:bg-indigo-500 transition shadow-xl shadow-indigo-600/20 uppercase tracking-widest">Sistemi Başlat</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="max-w-7xl mx-auto hidden">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-16 gap-8">
+            <div>
+                <h1 class="text-4xl font-black italic tracking-tighter uppercase">ATASOY <span class="text-indigo-500 font-normal text-3xl">TEKSTİL</span></h1>
+                <p id="sync-indicator" class="text-[9px] font-bold text-emerald-500 uppercase tracking-[0.4em] mt-2 italic">● STOK TAKİP</p>
+            </div>
+            <div id="header-stats" class="flex gap-4"></div>
+        </header>
+
+        <nav class="flex gap-4 overflow-x-auto no-scrollbar mb-12 pb-4">
+            <button onclick="setTab('ozet')" id="btn-ozet" class="nav-btn active">Özet Panel</button>
+            <button onclick="setTab('stok')" id="btn-stok" class="nav-btn">Stok & Sihirbaz</button>
+            <button onclick="setTab('finans')" id="btn-finans" class="nav-btn">Finans & Giderler</button>
+            <button onclick="setTab('ayarlar')" id="btn-ayarlar" class="nav-btn">Ayarlar</button>
+        </nav>
+
+        <main id="main-content" class="space-y-10"></main>
+    </div>
+
+<script>
+let state = { active: 'ozet', transactions: [], stocks: [], products: ['Beyaz Ram', 'Renkli Ram', 'Ribana', 'Süprem'] };
+const DB_REF = 'tekstil_v17_final_master';
+
+// DATABASE CORE
+window.initApp = function() {
+    window.fb.onValue(window.fb.ref(window.fb.db, DB_REF), (snap) => {
+        const data = snap.val();
+        if(data) {
+            state = data;
+            if(!state.products) state.products = ['Beyaz Ram', 'Renkli Ram', 'Ribana', 'Süprem'];
+            render();
+        }
+    });
+}
+
+function login() {
+    if(document.getElementById('pass').value === "159357Ali") {
+        document.getElementById('login-zone').style.display = 'none';
+        document.getElementById('dashboard').classList.remove('hidden');
+        render();
+    } else alert("Hatalı Şifre!");
+}
+
+function sync() { window.fb.set(window.fb.ref(window.fb.db, DB_REF), state); }
+function setTab(t) { state.active = t; render(); }
+
+// CALCULATION LOGIC
+function getStats() {
+    let nakit = 0, alacak = 0, borc = 0;
+    (state.transactions || []).forEach(t => {
+        const val = parseFloat(t.amount) || 0;
+        if(t.isPaid) {
+            t.type === 'gelir' ? nakit += val : nakit -= val;
+        } else {
+            t.type === 'gelir' ? alacak += val : borc += val;
+        }
+    });
+    return { nakit, alacak, borc };
+}
+
+// RENDER ENGINE
+function render() {
+    const stats = getStats();
+    const view = document.getElementById('main-content');
+    
+    document.getElementById('header-stats').innerHTML = `
+        <div class="bento-card px-10 py-5 text-center border-indigo-500/20">
+            <label>Net Kasa (Peşin)</label>
+            <div class="text-3xl font-black ${stats.nakit >= 0 ? 'text-emerald-400' : 'text-rose-500'}">${stats.nakit.toLocaleString()} ₺</div>
+        </div>`;
+
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    if(document.getElementById('btn-' + state.active)) document.getElementById('btn-' + state.active).classList.add('active');
+
+    if(state.active === 'ozet') renderOzet(view, stats);
+    if(state.active === 'stok') renderStok(view);
+    if(state.active === 'finans') renderFinans(view);
+    if(state.active === 'ayarlar') renderAyarlar(view);
+}
+
+function renderOzet(view, stats) {
+    const pending = (state.transactions || []).filter(t => !t.isPaid);
+    view.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+            <div class="bento-card p-12 bg-emerald-500/5 border-emerald-500/10">
+                <label>Beklenen Tahsilat</label>
+                <div class="text-5xl font-black text-emerald-400 mt-2">${stats.alacak.toLocaleString()} ₺</div>
+            </div>
+            <div class="bento-card p-12 bg-rose-500/5 border-rose-500/10">
+                <label>Toplam Borç Yükü</label>
+                <div class="text-5xl font-black text-rose-500 mt-2">${stats.borc.toLocaleString()} ₺</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bento-card p-10">
+                <h3 class="text-xs font-black mb-8 uppercase text-slate-500 tracking-widest"><i class="fas fa-clock mr-2"></i> Bekleyen Ödemeler / Tahsilatlar</h3>
+                <div class="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar">
+                    ${pending.length ? pending.map(tr => `
+                        <div class="flex justify-between items-center p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                            <div>
+                                <p class="text-[10px] text-slate-500 uppercase font-black">${tr.date} - ${tr.category}</p>
+                                <p class="text-sm font-black uppercase text-indigo-300">${tr.person}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-black ${tr.type==='gelir'?'text-emerald-400':'text-rose-400'} mb-2">${tr.amount.toLocaleString()} ₺</p>
+                                <button onclick="markAsPaid(${tr.id})" class="pay-action-btn">ÖDEMEYİ TAMAMLA</button>
+                            </div>
+                        </div>`).join('') : '<p class="text-slate-600 italic text-center py-10">Açıkta bekleyen işlem yok.</p>'}
+                </div>
+            </div>
+
+            <div class="bento-card p-10">
+                <h3 class="text-xs font-black mb-8 uppercase text-slate-500 tracking-widest"><i class="fas fa-warehouse mr-2"></i> Güncel Stok Durumu</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    ${(state.products || []).map(p => {
+                        const q = (state.stocks || []).filter(s => s.product === p).reduce((acc, s) => s.type === 'giris' ? acc + parseFloat(s.amount) : acc - parseFloat(s.amount), 0);
+                        return `<div class="p-5 bg-white/[0.02] border border-white/5 rounded-2xl text-center">
+                            <label class="!mb-1">${p}</label>
+                            <div class="text-xl font-black text-indigo-400">${q} <span class="text-[10px]">KG</span></div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>`;
+}
+
+function renderStok(view) {
+    const prodOptions = (state.products || []).map(p => `<option value="${p}">${p}</option>`).join('');
+    view.innerHTML = `
+        <div class="bento-card p-10 wizard-gradient">
+            <h3 class="text-[10px] font-black uppercase tracking-[0.4em] mb-10 text-indigo-400"><i class="fas fa-magic mr-2"></i> Seç-Dönüştür Sihirbazı</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <div><label>Nereden (Çıkış)</label><select id="w-from" class="input-field">${prodOptions}</select></div>
+                <div><label>Nereye (Giriş)</label><select id="w-to" class="input-field">${prodOptions}</select></div>
+                <div><label>Miktar (KG)</label><input type="number" id="w-amt" class="input-field" placeholder="0.00"></div>
+                <button onclick="runWizard()" class="bg-indigo-600 h-[60px] rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 shadow-xl">Dönüştür</button>
+            </div>
+        </div>
+
+        <div class="bento-card p-10">
+            <h3 class="text-sm font-black text-center mb-10 uppercase italic text-indigo-500">Yeni Stok Hareketi İşle</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div><label>Kumaş Grubu</label><select id="s-p" class="input-field">${prodOptions}</select></div>
+                <div><label>Hareket</label><select id="s-t" class="input-field"><option value="giris">Mal Kabul (+)</option><option value="cikis">Sevkiyat (-)</option></select></div>
+                <div><label>Miktar (KG)</label><input type="number" id="s-a" class="input-field" placeholder="0.00"></div>
+                <div><label>Birim Fiyat (₺/KG)</label><input type="number" id="s-price" class="input-field" placeholder="0.00"></div>
+                <div><label>Ödeme Şekli</label><select id="s-paid" class="input-field font-black text-indigo-400"><option value="true">Peşin (Kasa Hareketli)</option><option value="false">Vadeli (Cari Borç/Alacak)</option></select></div>
+                <div><label>Tarih</label><input type="date" id="s-d" class="input-field"></div>
+                <div class="lg:col-span-3"><label>Müşteri / Tedarikçi Detayı</label><input type="text" id="s-c" class="input-field" placeholder="Firma adını buraya yazınız..."></div>
+                <button onclick="saveStockComplex()" class="lg:col-span-3 bg-indigo-600 py-6 rounded-2xl font-black text-xl uppercase italic shadow-2xl">Hareketi Sisteme İşle</button>
+            </div>
+        </div>
+
+        <div class="bento-card overflow-hidden">
+            <div class="p-8 border-b border-white/5"><h3 class="text-xs font-black uppercase text-slate-500">Stok Hareket Geçmişi</h3></div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-white/5 text-[10px] font-black uppercase text-slate-500">
+                        <tr><th class="p-8">Tarih</th><th class="p-8">Ürün</th><th class="p-8">Firma</th><th class="p-8 text-right">Miktar</th><th class="p-8">Durum</th><th class="p-8"></th></tr>
+                    </thead>
+                    <tbody class="text-sm font-bold">
+                        ${(state.stocks || []).slice().reverse().map((s, idx) => `
+                            <tr class="table-row">
+                                <td class="p-8 text-slate-500 text-xs">${s.date}</td>
+                                <td class="p-8 text-indigo-300 uppercase">${s.product}</td>
+                                <td class="p-8 uppercase text-xs">${s.person || '-'}</td>
+                                <td class="p-8 text-right font-black ${s.type==='giris'?'text-emerald-400':'text-rose-500'}">${s.type==='giris'?'+':'-'}${s.amount} KG</td>
+                                <td class="p-8"><span class="status-pill ${s.isPaid ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${s.isPaid ? 'ÖDENDİ' : 'VADELİ'}</span></td>
+                                <td class="p-8 text-right"><button onclick="delStock(${state.stocks.length-1-idx})" class="text-slate-800 hover:text-rose-500 transition px-4"><i class="fas fa-trash-alt"></i></button></td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    document.getElementById('s-d').valueAsDate = new Date();
+}
+
+function renderFinans(view) {
+    view.innerHTML = `
+        <div class="bento-card p-10 mb-10 border-emerald-500/10">
+            <h3 class="text-sm font-black text-center mb-10 uppercase italic text-emerald-500">Finansal İşlem Ekle</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div><label>İşlem Türü</label><select id="f-t" class="input-field"><option value="gider">Ödeme (Para Çıkışı)</option><option value="gelir">Tahsilat (Para Girişi)</option></select></div>
+                <div><label>Kategori</label><select id="f-cat" class="input-field"><option>Fatura</option><option>Kredi</option><option>Maaş</option><option>Hammadde</option><option>Diğer</option></select></div>
+                <div><label>Tutar (₺)</label><input type="number" id="f-a" class="input-field" placeholder="0.00"></div>
+                <div><label>Ödeme Durumu</label><select id="f-s" class="input-field"><option value="true">Ödendi (Peşin)</option><option value="false">Beklemede (Vadeli)</option></select></div>
+                <div class="lg:col-span-4"><label>Açıklama / Cari</label><input type="text" id="f-p" class="input-field" placeholder="Cari bilgisi veya işlem detayı..."></div>
+                <button onclick="saveFinance()" class="lg:col-span-4 bg-emerald-600 py-6 rounded-2xl font-black text-xl uppercase shadow-lg">İşlemi Kaydet</button>
+            </div>
+        </div>
+
+        <div class="bento-card overflow-hidden">
+            <div class="p-8 border-b border-white/5"><h3 class="text-xs font-black uppercase text-slate-500">Kasa & Hesap Hareketleri</h3></div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-white/5 text-[10px] font-black uppercase text-slate-500">
+                        <tr><th class="p-8">Tarih</th><th class="p-8">Kategori / Detay</th><th class="p-8 text-right">Tutar</th><th class="p-8">Durum</th><th class="p-8"></th></tr>
+                    </thead>
+                    <tbody class="text-sm font-bold">
+                        ${(state.transactions || []).slice().reverse().map(tr => `
+                            <tr class="table-row">
+                                <td class="p-8 text-slate-500 text-xs">${tr.date}</td>
+                                <td class="p-8"><p class="text-indigo-300 uppercase text-xs">${tr.category}</p><p class="text-[10px] text-slate-600 uppercase mt-1">${tr.person}</p></td>
+                                <td class="p-8 text-right font-black ${tr.type==='gelir'?'text-emerald-400':'text-rose-400'}">${tr.amount.toLocaleString()} ₺</td>
+                                <td class="p-8">
+                                    ${tr.isPaid ? 
+                                        '<span class="status-pill bg-emerald-500/10 text-emerald-500">TAMAMLANDI</span>' : 
+                                        `<button onclick="markAsPaid(${tr.id})" class="pay-action-btn uppercase tracking-tighter">Ödemeyi İşle</button>`
+                                    }
+                                </td>
+                                <td class="p-8 text-right"><button onclick="delFinance(${tr.id})" class="text-slate-800 hover:text-rose-500 px-4"><i class="fas fa-trash"></i></button></td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+function renderAyarlar(view) {
+    view.innerHTML = `
+        <div class="bento-card p-12 max-w-xl mx-auto border-indigo-500/10">
+            <h3 class="text-xl font-black text-center mb-10 uppercase text-indigo-500 italic">Ürün Kataloğu</h3>
+            <div class="flex gap-4 mb-10">
+                <input type="text" id="n-p" class="input-field" placeholder="Örn: Ribana 30/1">
+                <button onclick="addP()" class="bg-indigo-600 px-8 rounded-2xl font-black shadow-lg"><i class="fas fa-plus text-xl"></i></button>
+            </div>
+            <div class="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar pr-2">
+                ${(state.products || []).map(p => `
+                    <div class="flex justify-between items-center p-6 bg-white/[0.02] border border-white/5 rounded-2xl font-black text-xs tracking-widest uppercase">
+                        <span>${p}</span>
+                        <button onclick="delP('${p}')" class="text-rose-900 hover:text-rose-500 transition p-2"><i class="fas fa-trash-alt"></i></button>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+}
+
+// ACTION FUNCTIONS
+function markAsPaid(id) {
+    const idx = state.transactions.findIndex(t => t.id === id);
+    if(idx !== -1) {
+        state.transactions[idx].isPaid = true;
+        sync(); render();
+        alert("Ödeme sisteme ve kasaya başarıyla yansıtıldı.");
+    }
+}
+
+function saveStockComplex() {
+    const p = document.getElementById('s-p').value, t = document.getElementById('s-t').value, a = parseFloat(document.getElementById('s-a').value), prc = parseFloat(document.getElementById('s-price').value || 0), isPaid = document.getElementById('s-paid').value === 'true', cari = document.getElementById('s-c').value, d = document.getElementById('s-d').value;
+    if(!a) return alert("Hata: Miktar girilmedi!");
+    
+    if(!state.stocks) state.stocks = [];
+    state.stocks.push({ product: p, type: t, amount: a, person: cari, date: d, isPaid: isPaid });
+    
+    if(prc > 0) {
+        if(!state.transactions) state.transactions = [];
+        state.transactions.push({ id: Date.now(), type: t === 'giris' ? 'gider' : 'gelir', category: 'Hammadde Alım/Satım', amount: a * prc, isPaid: isPaid, person: cari + " (" + p + ")", date: d });
+    }
+    sync(); render();
+    alert("Kayıt Başarılı.");
+}
+
+function runWizard() {
+    const from = document.getElementById('w-from').value, to = document.getElementById('w-to').value, amt = parseFloat(document.getElementById('w-amt').value);
+    if(!amt || from === to) return alert("Seçimler veya miktar geçersiz!");
+    const d = new Date().toISOString().split('T')[0];
+    state.stocks.push({ product: from, type: 'cikis', amount: amt, person: 'SİHİRBAZ DÖNÜŞÜM', date: d, isPaid: true });
+    state.stocks.push({ product: to, type: 'giris', amount: amt, person: 'SİHİRBAZ DÖNÜŞÜM', date: d, isPaid: true });
+    sync(); render(); alert("Dönüşüm tamamlandı.");
+}
+
+function saveFinance() {
+    const t = document.getElementById('f-t').value, cat = document.getElementById('f-cat').value, a = parseFloat(document.getElementById('f-a').value), s = document.getElementById('f-s').value === 'true', p = document.getElementById('f-p').value;
+    if(!a) return alert("Tutar girilmedi!");
+    if(!state.transactions) state.transactions = [];
+    state.transactions.push({ id: Date.now(), type: t, category: cat, amount: a, isPaid: s, person: p, date: new Date().toISOString().split('T')[0] });
+    sync(); render();
+}
+
+function addP() { const v = document.getElementById('n-p').value.trim(); if(v) { state.products.push(v); sync(); document.getElementById('n-p').value=''; render(); } }
+function delP(p) { if(confirm('Silsin mi?')) { state.products = state.products.filter(x => x !== p); sync(); render(); } }
+function delStock(idx) { if(confirm('Silsin mi?')) { state.stocks.splice(idx, 1); sync(); render(); } }
+function delFinance(id) { if(confirm('Silsin mi?')) { state.transactions = state.transactions.filter(x => x.id !== id); sync(); render(); } }
+
+</script>
+</body>
+</html>
