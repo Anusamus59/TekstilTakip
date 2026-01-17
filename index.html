@@ -238,7 +238,7 @@ function renderFinans(view) {
             <h3 class="text-sm font-black text-center mb-10 uppercase italic text-emerald-500">Finansal İşlem Ekle</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div><label>İşlem Türü</label><select id="f-t" class="input-field"><option value="gider">Ödeme (Para Çıkışı)</option><option value="gelir">Tahsilat (Para Girişi)</option></select></div>
-                <div><label>Kategori</label><select id="f-cat" class="input-field"><option>Fatura</option><option>Kredi</option><option>Maaş</option><option>Hammadde</option><option>Diğer</option></select></div>
+                <div><label>Kategori</label><select id="f-cat" class="input-field"><option>Fatura</option><option>Kredi</option><option>Alışveriş</option><option>Yakıt</option><option>Hammadde</option><option>Diğer</option></select></div>
                 <div><label>Tutar (₺)</label><input type="number" id="f-a" class="input-field" placeholder="0.00"></div>
                 <div><label>Ödeme Durumu</label><select id="f-s" class="input-field"><option value="true">Ödendi (Peşin)</option><option value="false">Beklemede (Vadeli)</option></select></div>
                 <div class="lg:col-span-4"><label>Açıklama / Cari</label><input type="text" id="f-p" class="input-field" placeholder="Cari bilgisi veya işlem detayı..."></div>
@@ -340,4 +340,5 @@ function delFinance(id) { if(confirm('Silsin mi?')) { state.transactions = state
 
 </script>
 </body>
+
 </html>
